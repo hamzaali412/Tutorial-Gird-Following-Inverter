@@ -17,5 +17,5 @@ The control system is implemented in the $dq$-reference frame and consists of:
 2. **Outer Power Loop:** Manages Active ($P$) and Reactive ($Q$) power setpoints.
 3. **Synchronization:** A Phase-Locked Loop (PLL) to track the grid frequency and angle.
 
-![System Control Diagram](main_diagram.png)
+![System Control Diagram](diagram/main_diagram.png)
 *Figure 1: Control block diagram and physical system layout.*
