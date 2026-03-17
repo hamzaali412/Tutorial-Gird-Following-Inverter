@@ -103,10 +103,10 @@ All simulation parameters are centralized in `params.json`. You can modify the s
 | **`model_builder.py`** | **DAE Modeling:** Defines the Pyomo-based system of differential and algebraic equations. |
 | **`solver.py`** | **Numerical Engine:** Implements the Full Newton-Raphson and the Schur Complement solvers. |
 | **`simulation.py`** | **Execution Loop:** Manages the time-stepping logic and history storage. |
-| **`controllers.py`** | **Control Logic:** Houses the residuals for the PLL, Power, and Current control loops. |
+| **`controllers.py`** | **Control Logic:** Stores the residuals for the PLL, Power, and Current control loops. |
 | **`config.py`** | **Setup:** Handles JSON loading, Per-Unit (PU) conversions, and grid profile generation. |
 | **`initialization.py`** | **Steady-State:** Solves for initial conditions and pre-charges integrators for a smooth $t=0$ start. |
-| **`helpers.py`** | **Utilities:** Contains DQ transformations, Jacobian evaluators, and numerical smoothing functions. |
+| **`helpers.py`** | **Utilities:** Contains DQ transformations, Jacobian evaluators, and numerical smoothing functions for implementing P-F and Volt-Var Curve. |
 
 
 
