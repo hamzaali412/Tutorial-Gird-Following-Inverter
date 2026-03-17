@@ -128,6 +128,6 @@ All simulation parameters are centralized in `params.json`. You can modify the s
   </a>
   <p align="center">
     <br>
-    <code style="color: #d4af37;">Figure 2: Simulation results in Constant PQ mode with phase-jump disturbance.</code>
+    <code style="color: #d4af37;">Figure 2: Simulation results in constant PQ mode with changing grid angle.</code>
   </p>
 </div>
