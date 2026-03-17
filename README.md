@@ -18,11 +18,14 @@ The control system is implemented in the $dq$-reference frame and consists of:
 3. **Synchronization:** A Phase-Locked Loop (PLL) to track the grid frequency and angle.
 
 <div align="center">
-  <img 
-    src="diagram/main_diagram.png" 
-    alt="System Control Diagram" 
-    style="background-color: #f7f7f7; padding: 10px; border-radius: 5px; width: 80%;"
-  >
-  <br>
-  <em>Figure 1: Control block diagram and physical system layout.</em>
+  <a href="diagram/main_diagram.png">
+    <img 
+      src="diagram/main_diagram.png" 
+      alt="System Control Diagram" 
+      style="background-color: white; padding: 20px; border-radius: 12px; width: 70%; box-shadow: 0 4px 8px rgba(0,0,0,0.5);"
+    >
+  </a>
+  <p align="center">
+    <i>Figure 1: Control block diagram and physical system layout (Click to enlarge).</i>
+  </p>
 </div>
