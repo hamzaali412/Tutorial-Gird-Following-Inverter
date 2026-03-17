@@ -68,7 +68,7 @@ First, ensure you have Python installed (3.8 or higher is recommended). Clone th
 
 ```bash
 # Clone the repository
-git clone git@github.com:hamzaali412/Tutorial-Gird-following-Inverter.git
+git clone https://github.com/hamzaali412/Tutorial-Gird-following-Inverter.git
 
 # Navigate to the project folder
 cd Tutorial-Grid-Following-Inverter
