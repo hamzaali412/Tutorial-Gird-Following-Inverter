@@ -24,16 +24,16 @@ The control system is implemented in the $dq$-reference frame and consists of:
     <img 
       src="diagram/main_diagram.png" 
       alt="System Control Diagram" 
-      style="background-color: #161b22; 
-             padding: 15px; 
+      style="background-color: #f0f2f5; 
+             padding: 20px; 
              border-radius: 10px; 
              width: 75%; 
-             border: 2px solid #5c7cfa;
-             box-shadow: 0 0 20px rgba(92, 124, 250, 0.3);"
+             border: 3px solid #d4af37;
+             box-shadow: 0 0 15px rgba(212, 175, 55, 0.4);"
     >
   </a>
   <p align="center">
     <br>
-    <code style="color: #5c7cfa;">Figure 1: Control block diagram and physical system layout.</code>
+    <code style="color: #d4af37;">Figure 1: Control block diagram and physical system layout.</code>
   </p>
 </div>
