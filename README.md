@@ -1,7 +1,7 @@
 # Tutorial-Gird-following-Inverter
 A comprehensive Python tutorial for simulating grid-following inverters. This project implements Differential-Algebraic Equations (DAEs) solved via the Implicit Trapezoidal Rule and use promo auto-diff to compute the Jacobian for Newton Raphson method.  There are three different operational support modes: Constant PQ, Frequency support and Volt-Var 
 
-## 📐 System Configuration
+## System Configuration
 
 ### Network Topology
 The system consists of a two-bus network:
@@ -39,7 +39,7 @@ The control system is implemented in the $dq$-reference frame and consists of:
 </div>
 
 
-## 🕹️ Operational Support Modes
+## Operational Support Modes
 
 The inverter controller is designed to be multi-functional, allowing users to toggle between three distinct modes via the `params.json` file.
 
@@ -57,7 +57,7 @@ The inverter controller is designed to be multi-functional, allowing users to to
 * **Logic:** The inverter monitors the terminal voltage magnitude. If it drops (under-voltage) or rises (over-voltage) beyond the deadband, the inverter injects or absorbs reactive power ($Q$) to stabilize the bus.
 
 
-# 🛠️ How to Use the Codebase
+# How to Use the Codebase
 
 This repository is designed to be modular and easy to execute. Follow the steps below to set up the environment and run your first simulation.
 
@@ -81,7 +81,7 @@ python main.py
 ```
 
 
-### ⚙️ Configuration & Parameter Tuning
+### Configuration & Parameter Tuning
 All simulation parameters are centralized in `params.json`. You can modify the system behavior without touching the source code:
 
 * **Mode Selection:** * Change `"mode"` to `"PQ"`, `"FS"`, or `"VOLT-VAR"`.
@@ -89,11 +89,11 @@ All simulation parameters are centralized in `params.json`. You can modify the s
     * Modify `"Vmag_pu"` to simulate grid voltage drops and test system resilience.
 * **Droop Settings:** * Adjust `"K_droop_f"` (Frequency-Watt) or `"K_droop_v"` (Volt-Var) to change the support intensity and slope.
 
-> 💡 **Advanced Tip:** In `main.py`, you can toggle `method="schur"`. This utilizes the Schur Complement to partition the 22x22 Jacobian matrix, solving the linear sub-problems more efficiently—a technique used in large-scale matrices and comparing the results with full-Newton Raphson.
+> **Advanced Tip:** In `main.py`, you can toggle `method="schur"`. This utilizes the Schur Complement to partition the 22x22 Jacobian matrix, solving the linear sub-problems more efficiently—a technique used in large-scale matrices and comparing the results with full-Newton Raphson.
 
 
 
-### 📂 Repository Structure & File Descriptions
+### Repository Structure & File Descriptions
 
 
 | File | Description |
@@ -110,7 +110,7 @@ All simulation parameters are centralized in `params.json`. You can modify the s
 
 
 
-## 📈 Simulation Performance & Case Studies
+## Simulation Performance & Case Studies
 
 
 <div align="center">
