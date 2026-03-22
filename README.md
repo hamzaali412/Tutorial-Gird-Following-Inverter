@@ -134,4 +134,4 @@ All simulation parameters are centralized in `params.json`. You can modify the s
 
 ### Citation 
 
-If you find this tutorial helpful, please cite the following code base and tutorial available at: ttps://arxiv.org/abs/2603.19132
+If you find this tutorial helpful, please cite the following code base and tutorial available at: https://arxiv.org/abs/2603.19132
