@@ -1,31 +1,24 @@
-from config import load_parameters
-from simulation import run_simulation
-from plotting import plot_results
-import time
+from gfi_analysis import (
+    run_constant_pq,
+    run_frequency_support,
+    run_volt_var,
+    run_solver_comparison,
+    run_disturbance_study,
+)
 
-settings = {"T_end": 0.4, "h": 0.0001, "max_iter": 12, "tol": 1e-9, "use_sparse": True,}
+# ─── Choose an analysis (uncomment one) ─────────────────────
 
-p = load_parameters("params.json", settings)
-# Choose method: "schur" or "full"
-method = "full"
-# method = "schur"
-hist = run_simulation(p, method=method)
-plot_results(hist, p)
+# 1. Constant PQ — fixed P and Q injection with grid phase jump
+hist, p = run_constant_pq()
 
-############# Comparsion ####################
-# Full Newton
-# t0 = time.perf_counter()
-# hist_full = run_simulation(p, method="full")
-# t1 = time.perf_counter()
-# full_time = t1 - t0
+# 2. Frequency Support — active power droop response
+hist, p = run_frequency_support(K_droop_f=20.0, f_db=0.0005)
 
-# # Schur Newton
-# t2 = time.perf_counter()
-# hist_schur = run_simulation(p, method="schur")
-# t3 = time.perf_counter()
-# schur_time = t3 - t2
+# 3. Volt-Var — reactive power voltage regulation
+hist, p = run_volt_var(K_droop_v=20.0, Vdb=0.01, Vmag_dist=0.95)
 
-# print(f"Full Newton time : {full_time:.6f} s")
-# print(f"Schur time       : {schur_time:.6f} s")
-# print(f"Speedup (Full/Schur) = {full_time / schur_time:.3f}")
+# 4. Solver Comparison — Full Newton-Raphson vs Schur Complement
+hist_full, hist_schur, p = run_solver_comparison()
 
+# 5. Grid Disturbance Study — custom phase jump and/or voltage sag
+hist, p = run_disturbance_study(phase_jump_angle=0.4, Vmag_dist=0.90)
