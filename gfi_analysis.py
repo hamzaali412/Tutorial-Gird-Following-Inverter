@@ -642,7 +642,7 @@ def run_simulation(p, method="schur"):
 # Section 8: Plotting  (from plotting.py)
 # ═══════════════════════════════════════════════════════════════
 
-def plot_results(hist, p):
+def plot_results(hist, p, show=True):
     plt.rcParams.update({
         'font.family': 'Courier New',
         'font.size': 14,
@@ -693,113 +693,207 @@ def plot_results(hist, p):
         ax.spines['right'].set_visible(False)
 
     plt.tight_layout()
-    plt.show()
+    if show:
+        plt.show()
 
 
 # ═══════════════════════════════════════════════════════════════
-# Section 9: High-Level Analysis API
+# Section 9: Agent-Tool Architecture Classes
 # ═══════════════════════════════════════════════════════════════
 
-def _prepare_params(params_file, settings, overrides=None):
-    """Load parameters and apply any runtime overrides."""
-    p = load_parameters(params_file, settings)
-    if overrides:
-        for k, v in overrides.items():
+class SharedRegistry:
+    """A registry to share state between the various analysis tools."""
+    def __init__(self):
+        self._data = {}
+
+    def set(self, key, value):
+        self._data[key] = value
+
+    def get(self, key, default=None):
+        return self._data.get(key, default)
+
+
+class GFILoader:
+    """Tool for loading inverter parameters from a configuration file."""
+    def __init__(self, registry: SharedRegistry):
+        self.registry = registry
+
+    def load_parameters(self, json_file="params.json", settings=None):
+        p = load_parameters(json_file, settings)
+        self.registry.set("gfi:params", p)
+        return f"Loaded parameters from {json_file}. Registered as 'gfi:params'."
+
+
+class GFISimulator:
+    """Tool for configuring and executing the inverter simulation."""
+    def __init__(self, registry: SharedRegistry):
+        self.registry = registry
+
+    def _regenerate_profiles(self, p):
+        p["theta_grid_profile"] = np.where(
+            p["time_steps"] >= p.get("phase_jump_time", 0.2),
+            p.get("phase_jump_angle", 0.0),
+            p.get("theta_grid_init", 0.0),
+        )
+        p["Vmag_pu_profile"] = np.where(
+            p["time_steps"] >= p.get("phase_jump_time", 0.2),
+            p.get("Vmag_dist", 1.025),
+            p.get("Vmag_pu", 1.025),
+        )
+        self.registry.set("gfi:params", p)
+
+    def set_mode(self, mode: str, **kwargs):
+        p = self.registry.get("gfi:params")
+        if not p:
+            return "Error: Parameters not loaded."
+        p["mode"] = mode.upper()
+        for k, v in kwargs.items():
             p[k] = v
-        # Regenerate grid profiles if disturbance params changed
-        if any(k in overrides for k in ("phase_jump_angle", "phase_jump_time",
-                                         "theta_grid_init", "Vmag_pu", "Vmag_dist")):
-            p["theta_grid_profile"] = np.where(
-                p["time_steps"] >= p["phase_jump_time"],
-                p["phase_jump_angle"],
-                p["theta_grid_init"],
-            )
-            p["Vmag_pu_profile"] = np.where(
-                p["time_steps"] >= p["phase_jump_time"],
-                p["Vmag_dist"],
-                p["Vmag_pu"],
-            )
-    return p
+        self.registry.set("gfi:params", p)
+        return f"Simulation mode set to '{p['mode']}' with updates: {kwargs}"
+
+    def set_disturbance(self, phase_jump_angle=None, Vmag_dist=None, phase_jump_time=None):
+        p = self.registry.get("gfi:params")
+        if not p:
+            return "Error: Parameters not loaded."
+        
+        updates = {}
+        if phase_jump_angle is not None:
+            p["phase_jump_angle"] = phase_jump_angle
+            updates["phase_jump_angle"] = phase_jump_angle
+        if Vmag_dist is not None:
+            p["Vmag_dist"] = Vmag_dist
+            updates["Vmag_dist"] = Vmag_dist
+        if phase_jump_time is not None:
+            p["phase_jump_time"] = phase_jump_time
+            updates["phase_jump_time"] = phase_jump_time
+            
+        self._regenerate_profiles(p)
+        return f"Disturbance parameters updated: {updates}"
+
+    def set_parameter(self, key: str, value: float):
+        p = self.registry.get("gfi:params")
+        if not p:
+            return "Error: Parameters not loaded."
+        p[key] = value
+        
+        # Handle recalculations if specific physical params changed
+        if key in ["Tf_pll"]:
+            p["kp_pll"] = 1 / (2 * math.pi * p["fbase"] * p["Tf_pll"])
+            p["ki_pll"] = p["kp_pll"] / (4 * p["Tf_pll"])
+        if key in ["R_line_pu", "X_line_pu"]:
+            den = p["R_line_pu"] ** 2 + p["X_line_pu"] ** 2
+            p["G_pu"] = p["R_line_pu"] / den
+            p["B_pu"] = -p["X_line_pu"] / den
+
+        self.registry.set("gfi:params", p)
+        return f"Parameter '{key}' updated to {value}."
+
+    def run_simulation(self, method="full"):
+        p = self.registry.get("gfi:params")
+        if not p:
+            return "Error: Parameters not loaded."
+        
+        t0 = time.perf_counter()
+        try:
+            hist = run_simulation(p, method=method)
+            elapsed = time.perf_counter() - t0
+            self.registry.set("gfi:hist", hist)
+            self.registry.set(f"gfi:time:{method}", elapsed)
+            return f"Simulation completed successfully using '{method}' method in {elapsed:.3f} s. History registered as 'gfi:hist'."
+        except Exception as e:
+            return f"Simulation failed: {str(e)}"
 
 
-def run_constant_pq(params_file="params.json", settings=None, method="full", plot=True):
-    """Run a Constant PQ mode simulation."""
-    p = _prepare_params(params_file, settings, overrides={"mode": "PQ"})
-    hist = run_simulation(p, method=method)
-    if plot:
-        plot_results(hist, p)
-    return hist, p
+class GFIAnalyzer:
+    """Tool for extracting and analyzing performance metrics from simulation history."""
+    def __init__(self, registry: SharedRegistry):
+        self.registry = registry
+
+    def check_stability(self):
+        hist = self.registry.get("gfi:hist")
+        if not hist:
+            return "Error: No simulation history found."
+        
+        final_pll_angle = hist["theta_pll"][-1]
+        if np.isnan(final_pll_angle) or np.isinf(final_pll_angle):
+            return "Status: Diverged / Unstable (Synchronism lost)."
+        return "Status: Stable / Converged."
+
+    def get_overshoot(self, variable="P_expr"):
+        hist = self.registry.get("gfi:hist")
+        p = self.registry.get("gfi:params")
+        if not hist or not p:
+            return "Error: History or parameters not found."
+            
+        t = p["time_steps"]
+        post_dist_indices = np.where(t >= p.get("phase_jump_time", 0.2))[0]
+        
+        if variable == "P_expr":
+            ss_target = p["Pref_const"]
+        elif variable == "Q_expr":
+            ss_target = p["Qref_const"]
+        else:
+            return f"Error: Target steady-state for '{variable}' is unknown."
+
+        vals = hist[variable][post_dist_indices]
+        v_max = np.max(vals)
+        v_min = np.min(vals)
+        
+        overshoot = max(abs(v_max - ss_target), abs(v_min - ss_target))
+        return f"Transient Overshoot for {variable}: {overshoot:.4f} pu (Max: {v_max:.4f}, Min: {v_min:.4f}, Target: {ss_target:.4f})"
+
+    def compare_solvers(self):
+        t_full = self.registry.get("gfi:time:full")
+        t_schur = self.registry.get("gfi:time:schur")
+        
+        if not t_full or not t_schur:
+            return "Error: Must run simulation with both 'full' and 'schur' methods to compare."
+            
+        speedup = t_full / t_schur
+        return f"Solver Comparison:\n - Full Newton: {t_full:.4f} s\n - Schur Complement: {t_schur:.4f} s\n - Speedup (Full/Schur): {speedup:.3f}x"
+
+    def get_settling_time(self):
+        # Optional helper to compute settling time
+        hist = self.registry.get("gfi:hist")
+        p = self.registry.get("gfi:params")
+        if not hist or not p:
+            return "Error: History or parameters not found."
+            
+        # Simplified settling time check (time until |theta_pll - theta_inv| < 0.01)
+        diff = np.abs(hist["theta_pll"] - hist["theta_inv"])
+        t = p["time_steps"]
+        post_dist_indices = np.where(t >= p.get("phase_jump_time", 0.2))[0]
+        
+        settling_time = None
+        for i in range(len(post_dist_indices)-1, -1, -1):
+            idx = post_dist_indices[i]
+            if diff[idx] > 0.01:
+                if i < len(post_dist_indices) - 1:
+                    settling_time = t[post_dist_indices[i+1]] - p.get("phase_jump_time", 0.2)
+                break
+                
+        if settling_time is None:
+            return "Settling Time: Did not exceed threshold or never settled."
+        return f"PLL Settling Time (tolerance 0.01 rad): {settling_time:.4f} s"
 
 
-def run_frequency_support(params_file="params.json", settings=None, method="full",
-                          plot=True, K_droop_f=20.0, f_db=0.0005):
-    """Run a Frequency Support (Frequency-Watt) simulation."""
-    overrides = {"mode": "FS", "K_droop_f": K_droop_f, "f_db": f_db}
-    p = _prepare_params(params_file, settings, overrides=overrides)
-    hist = run_simulation(p, method=method)
-    if plot:
-        plot_results(hist, p)
-    return hist, p
+class GFIPlotter:
+    """Tool for plotting the simulation results using the original graphing function."""
+    def __init__(self, registry: SharedRegistry):
+        self.registry = registry
 
+    def plot_results(self, save_path=None):
+        hist = self.registry.get("gfi:hist")
+        p = self.registry.get("gfi:params")
+        if not hist or not p:
+            return "Error: No simulation history or parameters found."
+        
+        # Use the original plot_results logic implicitly
+        plot_results(hist, p, show=False)
+        
+        if save_path:
+            plt.savefig(save_path, dpi=300)
+            return f"Plot saved to '{save_path}'"
+        return "Plot rendered interactively."
 
-def run_volt_var(params_file="params.json", settings=None, method="full",
-                 plot=True, K_droop_v=20.0, Vdb=0.01, V_target=1.068,
-                 Qmax_sup=0.4, Vmag_dist=None):
-    """Run a Volt-Var simulation."""
-    overrides = {
-        "mode": "VOLT-VAR",
-        "K_droop_v": K_droop_v,
-        "Vdb": Vdb,
-        "V_target": V_target,
-        "Qmax_sup": Qmax_sup,
-    }
-    if Vmag_dist is not None:
-        overrides["Vmag_dist"] = Vmag_dist
-    p = _prepare_params(params_file, settings, overrides=overrides)
-    hist = run_simulation(p, method=method)
-    if plot:
-        plot_results(hist, p)
-    return hist, p
-
-
-def run_solver_comparison(params_file="params.json", settings=None, plot=True):
-    """Run both Full Newton and Schur solvers, compare timing and speedup."""
-    p = _prepare_params(params_file, settings)
-
-    t0 = time.perf_counter()
-    hist_full = run_simulation(p, method="full")
-    t1 = time.perf_counter()
-    full_time = t1 - t0
-
-    # Reload params (model is rebuilt internally per run)
-    p2 = _prepare_params(params_file, settings)
-    t2 = time.perf_counter()
-    hist_schur = run_simulation(p2, method="schur")
-    t3 = time.perf_counter()
-    schur_time = t3 - t2
-
-    print(f"Full Newton time : {full_time:.6f} s")
-    print(f"Schur time       : {schur_time:.6f} s")
-    print(f"Speedup (Full/Schur) = {full_time / schur_time:.3f}")
-
-    if plot:
-        plot_results(hist_full, p)
-    return hist_full, hist_schur, p
-
-
-def run_disturbance_study(params_file="params.json", settings=None, method="full",
-                          plot=True, phase_jump_angle=None, Vmag_dist=None,
-                          phase_jump_time=None):
-    """Run a grid disturbance study with custom phase jump and/or voltage change."""
-    overrides = {}
-    if phase_jump_angle is not None:
-        overrides["phase_jump_angle"] = phase_jump_angle
-    if Vmag_dist is not None:
-        overrides["Vmag_dist"] = Vmag_dist
-    if phase_jump_time is not None:
-        overrides["phase_jump_time"] = phase_jump_time
-    p = _prepare_params(params_file, settings, overrides=overrides)
-    hist = run_simulation(p, method=method)
-    if plot:
-        plot_results(hist, p)
-    return hist, p
